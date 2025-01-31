@@ -8,9 +8,7 @@ function CreateTrip(){
     const [place, setPlace] = useState();
     const [formData, setFormData] = useState([]);
     const handleinputChange = (name,value) => {
-        setFormData({
-            ...formData,
-            [name]: value})
+        setFormData()
     }
 
     return(
