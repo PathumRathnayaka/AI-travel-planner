@@ -17,10 +17,7 @@ function CreateTrip(){
 
     const onGenerateTrip = () => {
         if(formData?.NoOfDays>5 && !formData?.Budget || !formData?.location || !formData?.travels){
-            toast({
-                title: 'Error',
-                description: 'Please fill all the fields',
-            })
+            toast("Please fill all the fields")
             return;
         }
         console.log(formData);
