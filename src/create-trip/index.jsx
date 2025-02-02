@@ -14,11 +14,13 @@ import {
 import { FcGoogle } from "react-icons/fc";
 import {chatSession} from "@/service/AIModal.jsx";
 import {useGoogleLogin} from "@react-oauth/google";
+import axios from "axios";
+import { doc, setDoc } from "firebase/firestore";
 
 
 function CreateTrip(){
     const [place, setPlace] = useState();
-    const [formData, setFormData] = useState([]);
+    const [formData, setFormData] = useState({});
     const [openDialog, setOpenDialog] = useState(false);
     const handleinputChange = (name,value) => {
         setFormData({
@@ -31,7 +33,33 @@ function CreateTrip(){
         onError:()=>console.log('Login Failed')
     })
 
+    const GetUserProfile = (tokenInfo) => {
+        axios.get(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInfo.access_token}`, {
+            headers: {
+                Authorization: `Bearer ${tokenInfo.access_token}`,
+                Accept: 'application/json'
+            }
+        }).then((res) => {
+            console.log(res.data);
+        }).catch((error) => {
+            console.error("Error fetching user profile:", error);
+        });
+    };
+
+    const SaveAITrip=async(tripdata)=>{
+        const user=JSON.parse(localStorage.getItem('user'));
+        const docId=Data.now().toString()
+        await setDoc(doc(db, "AITrip", docId), {
+            useSelection: formData,
+            tripData: tripdata,
+            userEmail: user?.email,
+            id:docId
+        });
+    }
+
     const onGenerateTrip = async () => {
+
+
 
         const user=localStorage.getItem('user');
         if(!user){
@@ -55,6 +83,7 @@ function CreateTrip(){
 
         const result = await chatSession.sendMessage(final_Prompt);
         console.log(result);
+        SaveAITrip(result?.response?.text)
     }
 
     useEffect(() => {
