@@ -1,21 +1,44 @@
 import React, {useEffect, useState} from 'react';
 import GooglePlacesAutocomplete from 'react-google-places-autocomplete';
 import {Input} from "@/components/ui/input.jsx";
-import {SelectBudgetOptions, SelectTravelsList} from "@/constants/option.jsx";
+import {AI_PROMPT, SelectBudgetOptions, SelectTravelsList} from "@/constants/option.jsx";
 import {Button} from "@/components/ui/button.jsx";
 import {toast} from "@/hooks/use-toast.js";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+
+} from "@/components/ui/dialog"
+import { FcGoogle } from "react-icons/fc";
+import {chatSession} from "@/service/AIModal.jsx";
+import {useGoogleLogin} from "@react-oauth/google";
 
 
 function CreateTrip(){
     const [place, setPlace] = useState();
     const [formData, setFormData] = useState([]);
+    const [openDialog, setOpenDialog] = useState(false);
     const handleinputChange = (name,value) => {
         setFormData({
             ...formData,
             [name]: value})
     }
 
-    const onGenerateTrip = () => {
+    const login=useGoogleLogin({
+        onSuccess:(codeResponse)=>console.log(codeResponse),
+        onError:()=>console.log('Login Failed')
+    })
+
+    const onGenerateTrip = async () => {
+
+        const user=localStorage.getItem('user');
+        if(!user){
+            setOpenDialog(true);
+            return;
+        }
+
         if(formData?.NoOfDays>5 && !formData?.Budget || !formData?.location || !formData?.travels){
             toast({
                 title: 'Error',
@@ -23,7 +46,15 @@ function CreateTrip(){
             })
             return;
         }
-        console.log(formData);
+        const final_Prompt=AI_PROMPT
+            .replace('{location}', formData?.location)
+            .replace('{NoOfDays}', formData?.NoOfDays)
+            .replace('{Budget}', formData?.Budget)
+            .replace('{travels}', formData?.travels)
+        console.log(final_Prompt);
+
+        const result = await chatSession.sendMessage(final_Prompt);
+        console.log(result);
     }
 
     useEffect(() => {
@@ -85,6 +116,24 @@ function CreateTrip(){
                 <div className='my-10 justify-end flex'>
                     <Button onClick={onGenerateTrip}>Generate Trip</Button>
                 </div>
+
+                <Dialog open={openDialog}>
+
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogDescription>
+                                <img src='/logo.svg'/>
+                                <h2 className='font-bold text-lg mt-7'>Sign with google</h2>
+                                <p>Sign to the app with Google authentication security</p>
+                                <Button onClick={login} className='w-full mt-5 flex gap-4 items-center'>
+                                    <FcGoogle className='h-7 w-7'/>Sign in with Google</Button>
+                            </DialogDescription>
+                        </DialogHeader>
+                    </DialogContent>
+                </Dialog>
+
+
+
             </div>
 
         </div>
