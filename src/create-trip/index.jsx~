@@ -31,7 +31,7 @@ function CreateTrip(){
     const login = useGoogleLogin({
         onSuccess: (codeResponse) => {
             console.log(codeResponse);
-            GetUserProfile(codeResponse);
+            GetUserProfile(codeResponse); // Call this to fetch user details & close dialog
         },
         onError: () => console.log('Login Failed')
     });
