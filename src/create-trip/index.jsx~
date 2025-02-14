@@ -1,37 +1,41 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import GooglePlacesAutocomplete from 'react-google-places-autocomplete';
-import {Input} from "@/components/ui/input.jsx";
-import {AI_PROMPT, SelectBudgetOptions, SelectTravelsList} from "@/constants/option.jsx";
-import {Button} from "@/components/ui/button.jsx";
-import {toast} from "@/hooks/use-toast.js";
+import { Input } from "@/components/ui/input.jsx";
+import { AI_PROMPT, SelectBudgetOptions, SelectTravelsList } from "@/constants/option.jsx";
+import { Button } from "@/components/ui/button.jsx";
+import { toast } from "@/hooks/use-toast.js";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
-
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import { FcGoogle } from "react-icons/fc";
-import {chatSession} from "@/service/AIModal.jsx";
-import {useGoogleLogin} from "@react-oauth/google";
+import { chatSession } from "@/service/AIModal.jsx";
+import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { doc, setDoc } from "firebase/firestore";
+import { db } from "@/service/firebaseConfig.jsx";
 
-
-function CreateTrip(){
+function CreateTrip() {
     const [place, setPlace] = useState();
     const [formData, setFormData] = useState({});
     const [openDialog, setOpenDialog] = useState(false);
-    const handleinputChange = (name,value) => {
+    const [loading, setLoading] = useState(false);
+
+    const handleinputChange = (name, value) => {
+        console.log(`Updating ${name} with value:`, value); // Debugging
         setFormData({
             ...formData,
-            [name]: value})
-    }
+            [name]: value
+        });
+    };
 
     const login = useGoogleLogin({
         onSuccess: (codeResponse) => {
             console.log(codeResponse);
-            GetUserProfile(codeResponse); // Call this to fetch user details & close dialog
+            GetUserProfile(codeResponse);
         },
         onError: () => console.log('Login Failed')
     });
@@ -51,48 +55,83 @@ function CreateTrip(){
         });
     };
 
-    const SaveAITrip=async(tripdata)=>{
-        const user=JSON.parse(localStorage.getItem('user'));
+    const SaveAITrip = async (tripdata) => {
+        console.log("tripData:", tripdata);
+
+        if (!tripdata || typeof tripdata !== "string") {
+            console.error("Error: Invalid tripData!", tripdata);
+            return; // Prevent saving invalid data
+        }
+
+        setLoading(true);
+        const user = JSON.parse(localStorage.getItem('user'));
+
+        if (!user) {
+            console.error("User is not authenticated");
+            return;
+        }
+
+
         const docId = Date.now().toString();
+
         await setDoc(doc(db, "AITrip", docId), {
             useSelection: formData,
-            tripData: tripdata,
+            tripData: JSON.parse(tripdata),
             userEmail: user?.email,
-            id:docId
+            id: docId
         });
-    }
+        console.log("Document successfully written!");
+        setLoading(false);
+    };
 
     const onGenerateTrip = async () => {
+        console.log("Form Data:", formData);
 
-
-
-        const user=localStorage.getItem('user');
-        if(!user){
+        const user = localStorage.getItem('user');
+        if (!user) {
             setOpenDialog(true);
             return;
         }
 
-        if(formData?.NoOfDays>5 && !formData?.Budget || !formData?.location || !formData?.travels){
+        if (!formData?.NoOfDays || formData?.NoOfDays > 5 || !formData?.Budget || !formData?.location || !formData?.traveler) {
+            console.log("Validation Failed: Missing Fields", formData);
             toast({
                 title: 'Error',
                 description: 'Please fill all the fields',
-            })
+            });
             return;
         }
-        const final_Prompt=AI_PROMPT
-            .replace('{location}', formData?.location)
+
+        setLoading(true);
+
+        const final_Prompt = AI_PROMPT
+            .replace('{location}', formData?.location.label)
             .replace('{NoOfDays}', formData?.NoOfDays)
             .replace('{Budget}', formData?.Budget)
-            .replace('{travels}', formData?.travels)
+            .replace('{travels}', formData?.traveler);
+
         console.log(final_Prompt);
 
         const result = await chatSession.sendMessage(final_Prompt);
-        console.log(result);
-        SaveAITrip(result?.response?.text)
-    }
+        console.log("AI Response:", result);
 
+        const tripData = result?.response?.text?.();
+        console.log("tripData Extracted:", tripData);
+
+        if (!tripData || typeof tripData !== "string") {
+            console.error("Error: Invalid tripData!", tripData);
+            setLoading(false);
+            return;
+        }
+
+        SaveAITrip(tripData);
+    };
+
+    // Updated useEffect to log formData only when it changes and is not empty
     useEffect(() => {
-        console.log(formData)
+        if (Object.keys(formData).length > 0) {
+            console.log(formData);
+        }
     }, [formData]);
 
     return(
@@ -148,7 +187,10 @@ function CreateTrip(){
                     </div>
                 </div>
                 <div className='my-10 justify-end flex'>
-                    <Button onClick={onGenerateTrip}>Generate Trip</Button>
+                    <Button onClick={onGenerateTrip}>
+                        {loading && <AiOutlineLoading3Quarters className='animate-spin'/>}
+                        {loading ? 'Generating...' : 'Generate trip'}
+                    </Button>
                 </div>
 
                 <Dialog open={openDialog}>
